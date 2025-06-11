@@ -8,7 +8,7 @@ The project contains both deployment logic for the application itself and its in
 
 ## Code Snippets
 
-1. Swap all placeholder names in the repo with actual names
+0. Swap all placeholder names in the repo with actual names
 
     ```
     # Placeholders include "aether", "exampledomain.com" and "exampleservice"
