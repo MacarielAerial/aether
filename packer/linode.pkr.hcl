@@ -1,11 +1,11 @@
 packer {
   required_plugins {
     linode = {
-      version = ">= 2.41.0"
+      version = ">= 1.6.5"
       source  = "github.com/hashicorp/linode"
     }
     ansible = {
-      version = ">= 1.3.0"
+      version = ">= 1.1.3"
       source  = "github.com/hashicorp/ansible"
     }
   }
