@@ -1,0 +1,69 @@
+services:
+  exampleservice:
+    image: ghcr.io/${GITHUB_USERNAME}/exampleservice:latest
+    container_name: exampleservice-live
+    restart: unless-stopped
+    environment:
+      FRONTEND_USERNAME: ${FRONTEND_USERNAME}
+      FRONTEND_PASSWORD: ${FRONTEND_PASSWORD}
+    depends_on:
+      - chromadb
+
+  certbot-init:
+    image: certbot/certbot
+    container_name: aether-certbot-init
+    network_mode: host
+    environment:
+      DOMAIN: ${DOMAIN}
+      EMAIL:  ${EMAIL}
+      STAGING: ${STAGING}
+    volumes:
+      - certbot-etc:/etc/letsencrypt
+      - certbot-var:/var/lib/letsencrypt
+      - certbot-webroot:/var/www/certbot
+      - ./scripts/certbot-init.sh:/usr/local/bin/certbot-init.sh:ro
+    entrypoint: ["/usr/local/bin/certbot-init.sh"]
+    restart: "no"
+
+  nginx:
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile.nginx
+    container_name: aether-nginx
+    environment:
+      DOMAIN: ${DOMAIN}
+    depends_on:
+      certbot-init:
+        condition: service_completed_successfully
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/conf.d/:/etc/nginx/conf.d/:ro
+      - certbot-etc:/etc/letsencrypt:ro
+      - certbot-webroot:/var/www/certbot:ro
+    restart: unless-stopped
+
+  certbot-renew:
+    image: certbot/certbot
+    container_name: aether-certbot-renew
+    network_mode: host
+    depends_on:
+      certbot-init:
+        condition: service_completed_successfully
+    environment:
+      DOMAIN: ${DOMAIN}
+      EMAIL:  ${EMAIL}
+      STAGING: ${STAGING}
+    volumes:
+      - certbot-etc:/etc/letsencrypt
+      - certbot-var:/var/lib/letsencrypt
+      - certbot-webroot:/var/www/certbot
+      - ./scripts/certbot-renew.sh:/usr/local/bin/certbot-renew.sh:ro
+    entrypoint: ["/usr/local/bin/certbot-renew.sh"]
+    restart: unless-stopped
+
+volumes:
+  certbot-etc:
+  certbot-var:
+  certbot-webroot:

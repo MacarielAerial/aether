@@ -1,0 +1,12 @@
+# Dockerfile.nginx
+FROM nginx:stable-alpine
+
+# install inotify-tools so we can watch for file updates
+RUN apk add --no-cache inotify-tools
+
+# copy in our custom entrypoint
+COPY nginx-entrypoint.sh /usr/local/bin/nginx-entrypoint.sh
+RUN chmod +x /usr/local/bin/nginx-entrypoint.sh
+
+ENTRYPOINT ["/usr/local/bin/nginx-entrypoint.sh"]
+CMD ["nginx", "-g", "daemon off;"]

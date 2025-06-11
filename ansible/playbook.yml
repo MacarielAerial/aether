@@ -1,0 +1,132 @@
+---
+- name: Configure Linode instance for FastAPI service
+  hosts: all
+  become: yes
+  vars:
+    github_username: "{{ github_username }}"
+    github_pat: "{{ github_pat }}"
+    frontend_username: "{{ frontend_username }}"
+    frontend_password: "{{ frontend_password }}"
+    domain: "{{ domain }}"
+    email: "{{ email }}"
+    staging: "{{ staging }}"
+
+    # Hard coded variables
+    docker_compose_version: "2.37.0"  
+  tasks:
+    - name: Install pre-requistes
+      apt:
+        name:
+          - gnupg2
+        state: present
+
+    - name: Add Docker's official GPG key
+      apt_key:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        state: present
+
+    - name: Add Docker's APT repository
+      apt_repository:
+        repo: deb [arch=amd64] https://download.docker.com/linux/debian {{ ansible_lsb.codename }} stable
+        state: present
+
+    - name: Update cache
+      become: true
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+
+    - name: Install required packages
+      apt:
+        name:
+          - docker-ce
+          - docker-compose-plugin
+        state: present
+
+    - name: Create a symbolic link
+      ansible.builtin.file:
+        src: /usr/bin/docker
+        dest: /usr/local/bin/docker
+        state: link
+
+    - name: Add user to Docker group
+      user:
+        name: root
+        append: yes
+        groups: docker
+
+    - name: Copy docker-compose.yml to the server
+      copy:
+        src: "{{ playbook_dir }}/../docker-compose.yml"
+        dest: /root/docker-compose.yml
+
+    - name: Create .env file
+      copy:
+        content: |
+          GITHUB_USERNAME={{ github_username | quote }}
+          FRONTEND_USERNAME={{ frontend_username | quote }}
+          FRONTEND_PASSWORD={{ frontend_password | quote }}
+          DOMAIN={{ domain | quote }}
+          EMAIL={{ email | quote }}
+          STAGING={{ staging | quote }}
+        dest: /root/.env
+
+    - name: Ensure certbot script directory exists
+      file:
+        path: /root/scripts
+        state: directory
+        mode: '0755'
+
+    - name: Copy certbot init script
+      copy:
+        src: "{{ playbook_dir }}/../scripts/certbot-init.sh"
+        dest: /root/scripts/certbot-init.sh
+        mode: '0755'
+
+    - name: Copy certbot renew script
+      copy:
+        src: "{{ playbook_dir }}/../scripts/certbot-renew.sh"
+        dest: /root/scripts/certbot-renew.sh
+        mode: '0755'
+
+    - name: Copy over nginx build context directory
+      copy:
+        src: "{{ playbook_dir }}/../nginx/"
+        dest: /root/nginx/
+
+    - name: Log in to ghcr.io with Docker
+      shell: echo "{{ github_pat }}" | docker login ghcr.io -u "{{ github_username }}" --password-stdin
+      no_log: true
+
+    - name: Create systemd service file
+      copy:
+        content: |
+          [Unit]
+          Description=Docker Compose Application Service
+          Requires=docker.service
+          After=docker.service
+
+          [Service]
+          Type=oneshot
+          RemainAfterExit=yes
+          WorkingDirectory=/root
+          ExecStart=/usr/local/bin/docker compose up -d
+          ExecStop=/usr/local/bin/docker compose down
+          TimeoutStartSec=0
+
+          [Install]
+          WantedBy=multi-user.target
+        dest: /etc/systemd/system/docker-compose-app.service
+
+    - name: Reload systemd to pick up new unit file
+      systemd:
+        daemon_reload: yes
+
+    - name: Enable docker-compose-app.service, but NOT start it
+      systemd:
+        name: docker-compose-app.service
+        enabled: yes
+        state: stopped
+
+# Run the following command in the deployed instance to start the service
+# systemctl start docker-compose-app.service

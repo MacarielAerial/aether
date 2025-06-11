@@ -1,0 +1,39 @@
+{
+	"name": "aether-dev",
+	"build": {
+		"dockerfile": "../Dockerfile",
+		"context": "..",
+		"target": "dev",
+		"args": {
+			"--tag": "${localWorkspaceFolderBasename}:latest"
+		}
+	},
+	"features": {
+		"ghcr.io/devcontainers/features/sshd:1": {}
+	},
+    "mounts": [
+        // Mount the SSH key folder to share with the host process
+        "source=/home/${localEnv:USER}/.ssh,target=/home/vscode/.ssh,readonly,type=bind"
+    ],
+	"customizations": {
+			"vscode": {
+					"settings": {
+                            "terminal.integrated.defaultProfile.linux": "bash",
+                            "terminal.integrated.profiles.linux": {"bash": {"path": "bash"}},
+							"remote.ssh.enableAgentForwarding": true
+					},
+					"extensions": [
+							"vscodevim.vim",
+							"tamasfe.even-better-toml",
+							"davidanson.vscode-markdownlint",
+							"ms-azuretools.vscode-containers",
+							"github.vscode-github-actions",
+							"gamunu.opentofu",
+							"timonwong.shellcheck",
+							"fnando.linter",
+							"sztheory.vscode-packer-powertools"
+					]
+			}
+	},
+	"remoteUser": "vscode"
+}
